@@ -1,7 +1,7 @@
 <launch>
 
-	<arg name="model" default="$(find project_ws)/urdf/description.urdf"/>
-	<arg name="world" default="$(find project_ws)/worlds/empty.world" />
+	<arg name="model" default="$(find hovercraft)/urdf/description.urdf"/>
+	<arg name="world" default="$(find hovercraft)/worlds/empty.world" />
 
 	<!-- Inclui o arquivo de inicialização do Gazebo, fornecido pelo pacote gazebo_ros -->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -11,7 +11,7 @@
 	<!-- define o parametro robot_description e relaciona ele com o arquivo da descrição fisica do robô (description.urdf) -->
 	<param 
     name="robot_description" 
-    textfile="$(find project_ws)/urdf/description.urdf" />
+    textfile="$(find hovercraft)/urdf/description.urdf" />
 
 	<!-- Executa o nó gerador do pacote gazebo_ros. O nome não importa se você tiver apenas um único robô. -->
 	<node 
@@ -37,7 +37,7 @@
     type="joint_state_publisher">
     </node>
 
-    <node pkg="project_ws" type="no_camera.py" name="camera" output="screen" />
-    <node pkg="project_ws" type="no_controle.py" name="controle" output="screen" />
+    <node pkg="hovercraft" type="no_camera.py" name="camera" output="screen" />
+    <node pkg="hovercraft" type="no_controle.py" name="controle" output="screen" />
 
 </launch>
