@@ -11,5 +11,33 @@
 		<include>
 			<uri>model://ground_plane</uri>
 		</include>
+
+		<model name='Objeto_alvo'>
+			<pose> 2 0 0 0 0 0 </pose>
+			<link name='link_do_alvo'>
+			   <visual name='visual_do_alvo'>
+					<geometry>
+						<box>
+						  <size>0.5 0.5 0.5</size>
+						</box>
+					</geometry>
+					<material>
+					   <script>
+				         <uri>file://media/materials/scripts/gazebo.material</uri>
+                         <name>Gazebo/Red</name> 
+					   </script> 
+					</material>
+				</visual>
+				<collision name='colisao_do_alvo'>
+					<geometry>
+				    	<box>
+							<size>0.5 0.5 0.5</size>
+				    	</box>
+					</geometry>
+				</collision>
+			</link>
+		</model>
+
+
 	</world>
 </sdf>
