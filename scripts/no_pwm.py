@@ -17,7 +17,7 @@ def pwm_callback(percentage_vel_motor):
     dc_min = 0.05 #motor desligado
     dc_max = 0.1 #motor a 100%
 
-    dc = (dc_min + ((dc_max - dc_min) * percentage_vel_motor)) * 100
+    dc = (dc_min + ((dc_max - dc_min) * percentage_vel_motor.data)) * 100
 
     pwm_esc.ChangeDutyCycle(dc)
 
