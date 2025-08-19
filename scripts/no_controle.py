@@ -84,13 +84,13 @@ class FSM_robo_seguidor:
 
     def callback_info_objeto(self, msg):
         
-        if len(msg.data) < 7:
+        if len(msg.data) < 5:
             rospy.logwarn("Mensagem de câmera incompleta.")
             return
 
         with self.dados_do_alvo_lock:
             self.dados_do_alvo = msg.data
-            self.area_total = msg.data[5] * msg.data[6]
+            self.area_total = msg.data[3] * msg.data[4]
             self.area_minima = self.area_total * 0.01
             self.area_maxima = self.area_total * 0.6
 
@@ -124,7 +124,7 @@ class FSM_robo_seguidor:
 
             else:
                 twist.linear.x = 0.6
-                erro_x = self.dados_do_alvo[0] - (int(self.dados_do_alvo[6] / 2) + offset)
+                erro_x = self.dados_do_alvo[0] - (int(self.dados_do_alvo[4] / 2) + offset)
                 twist.angular.z = max(min(self.PID(erro_x), 1.0), -1.0)
         #com a "chave" checa se o alvo está nos parametros. o primeiro if é pro tempinho que ele tem antes de voltar a girar, pra impedir que ande em circulos pq do PID
 

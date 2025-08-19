@@ -136,7 +136,7 @@ if __name__ == '__main__':
             contornos, _ = cv2.findContours(img_dilatada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             msg = Float32MultiArray()
-            msg.data = [0.0, 0.0, 0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem)]
+            msg.data = [0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem)]
             #cria a msg
             
             if contornos:
@@ -148,7 +148,6 @@ if __name__ == '__main__':
                     centro_x_objeto = int(M["m10"] / M["m00"])
                     centro_y_objeto = int(M["m01"] / M["m00"])
                     area_objeto = int(M["m00"])
-                    x, y, largura_objeto, altura_objeto = cv2.boundingRect(maior_contorno)
                     #o centroide é calculado com uma média ponderada que basicamente vira 1/2 ou seja 0.5
                     #esse m00 é a área calculada mt eficientemente pela própria função moments
                     
@@ -156,8 +155,6 @@ if __name__ == '__main__':
                     msg.data[0] = float(centro_x_objeto)
                     msg.data[1] = float(centro_y_objeto)
                     msg.data[2] = float(area_objeto)
-                    msg.data[3] = float(largura_objeto)
-                    msg.data[4] = float(altura_objeto)
                     # largura e altura da imagem já estão na mensagem la de cima
 
             # Sempre publica a mensagem, dentro ou fora do if
