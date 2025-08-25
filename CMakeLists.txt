@@ -26,4 +26,5 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-
+add_executable(no_camera scripts/no_camera.cpp)
+target_link_libraries(no_camera ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
