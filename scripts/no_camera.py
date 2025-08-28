@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge
 import threading
+from collections import deque
 
 def pasmeira(x):
 #função que faz nada pq o openCV exige para as trackbars
@@ -70,8 +71,8 @@ class robo_seguidor:
         rospy.init_node('camera', anonymous=True) 
         #anonymous faz com que o nó tenha nome único
 
-        self.imagem_atual = None
-        #cria uma variável pra imagem pra não dar erro na funcao callback se por algum motivo demorar a chegar as imagens
+        self.buffer = deque(maxlen = 10)# Tem que ver qual o tamnho ideal
+        #cria o buffer que recebe ass imagens da função callback
 
         self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.imagem_callback)
         #pega a imagem do topico do ros
@@ -103,7 +104,7 @@ class robo_seguidor:
     def imagem_callback(self, img_crua):
         try:
             with self.imagem_lock:
-                self.imagem_atual = self.bridge.imgmsg_to_cv2(img_crua, desired_encoding="bgr8")
+                self.buffer.append(self.bridge.imgmsg_to_cv2(img_crua, desired_encoding="bgr8")) 
         except Exception as e:
             rospy.logerr(f"Erro ao converter imagem: {e}")
     #pega a imagem crua, converte pra bgr8 e armazena. Try e except pra caso dessincronize o recebimento de imagens se ficar pesado dms, chatgpt auramaxxing. Sem o threading lock a janela do openccv fica preta
@@ -115,9 +116,13 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         # processa eventos do OpenCV no loop principal, pq aparentemente se for fora isso ferra com o gazebo sem motivo algum
         cv2.waitKey(1)
+
+        imagem_para_processar = None
+        #Quando o buffer estava vazio o codigo quebrava, pois nada era passado para imagem_para_processar, por isso precisei atribuir um valor inicial á essa variavel
         
         with robo.imagem_lock:
-            imagem_para_processar = robo.imagem_atual
+            if robo.buffer:
+                imagem_para_processar = robo.buffer.popleft()
         #acessa a imagem pra processar com a "chave"
 
         if imagem_para_processar is not None:
@@ -162,6 +167,7 @@ if __name__ == '__main__':
 
         taxa.sleep()
         #isso é mt foda, faz o programa relaxar se ele já cumpriu a atividade dentro do ciclo dos 30hz, entao evita que as coisas fiquem dessincronizadas e economiza cpu
+
 
     cv2.destroyAllWindows()
 #while true loop de cria
