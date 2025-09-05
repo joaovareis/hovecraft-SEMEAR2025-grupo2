@@ -15,6 +15,7 @@ ganho_integral = 0.0
 offset = 0
 
 timeout_perdido = 20.0
+cooldown_perdido = 15.0
 
 class maquina_de_estados(Enum):
     procurando = 0
@@ -47,6 +48,7 @@ class FSM_robo_seguidor:
         self.estado = maquina_de_estados.procurando
         self.visto_por_ultimo = rospy.Time.now()
         self.tempo_minimo_sem_objeto = 1.0  # segundos
+        self.inicio_perdido = 0.0 #todos os dias quando acordo, não tenho mais o tempo que passou...
 
         self.fsm = {
             maquina_de_estados.procurando: (self.procura,  self.transicao_procura),
@@ -176,6 +178,11 @@ class FSM_robo_seguidor:
                     rospy.loginfo("Objeto detectado! Transição para SEGUINDO.")
                     return maquina_de_estados.seguindo
                 
+            if self.inicio_perdido is not None:
+                if (rospy.Time.now() - self.inicio_perdido).to_sec() > cooldown_perdido:
+                    rospy.loginfo("Tempo em PERDIDO excedido. Transição para PROCURANDO.")
+                    return maquina_de_estados.procurando
+                
         return None
     #checa se o alvo está la. se estiver ele começa a seguir. Essa é a unica saida do perdido pra não virar um ping pong entre perdido e procurando
 
@@ -191,6 +198,12 @@ class FSM_robo_seguidor:
                 novo_estado = func_transicao()
                 #roda a func de transicao pra testar se é valido trocar de estado
                 if novo_estado is not None:
+
+                    if novo_estado == maquina_de_estados.perdido:
+                        self.inicio_perdido = rospy.Time.now()
+                    if novo_estado == maquina_de_estados.procurando:
+                        self.visto_por_ultimo = rospy.Time.now()
+
                     self.estado = novo_estado
                     rospy.loginfo(f"Mudança de estado: {self.estado.name} -> {novo_estado.name}")
                     #troca de estado e informa
