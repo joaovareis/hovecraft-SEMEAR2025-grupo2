@@ -12,7 +12,7 @@ import threading
 ganho_proporcional = 0.01
 ganho_diferencial = 0.001
 ganho_integral = 0.0
-offset = 75
+offset = 0
 
 timeout_perdido = 20.0
 
@@ -123,9 +123,11 @@ class FSM_robo_seguidor:
                 twist.angular.z = 0.0
 
             else:
-                twist.linear.x = 0.6
-                erro_x = self.dados_do_alvo[0] - (int(self.dados_do_alvo[3] / 2) + offset)
-                twist.angular.z = max(min(self.PID(erro_x), 1.0), -1.0)
+
+                if self.area_total > 0:
+                    twist.linear.x = 0.6 - (self.dados_do_alvo[1] / (self.area_total * 0.59))
+                    erro_x = self.dados_do_alvo[0] - (int(self.dados_do_alvo[3] / 2) + offset)
+                    twist.angular.z = max(min(self.PID(erro_x), 1.0), -1.0)
         #com a "chave" checa se o alvo está nos parametros. o primeiro if é pro tempinho que ele tem antes de voltar a girar, pra impedir que ande em circulos pq do PID
 
         self.comando.publish(twist)
