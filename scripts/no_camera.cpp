@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
 
     ros::Rate loop_rate(30);
     //esse cara não deveria existir conforme orientaçoes. mas eu quero ele aqui pro meu computador não pegar fogo. 
-    cv::Mat imagem_original, imagem_filtrada;
+    cv::Mat frame, imagem_original, imagem_filtrada;
 
     while (ros::ok()) {
         ros::spinOnce();
@@ -143,9 +143,14 @@ int main(int argc, char** argv) {
         msg_publicacao.data = {0.0, 0.0, 0.0, 0.0};
         //cria a msg com os 4 floats vazios pra publicar msm quando n ve nada
 
-        if (!node.imagem_recebida_.empty()) {
+        {
+            if (!node.imagem_recebida_.empty()) frame = node.imagem_recebida_.clone();
+            //buffer. Ele copia a ultima imagem recebida se nao for vazia. Aqui em baixo, ele sempre vai rodar pq frame nunca vai ser vazio, mas pode ser repetido
+        }
+
+        if (!frame.empty()) {
             //"!" é diferente que nem no python, mas sem o =
-            imagem_original = node.imagem_recebida_.clone();
+            imagem_original = frame;
             //clona a imagem original pra mostrar
             node.processa_imagens(imagem_original, imagem_filtrada);
 
