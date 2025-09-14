@@ -28,3 +28,6 @@ include_directories(
 
 add_executable(no_camera scripts/no_camera.cpp)
 target_link_libraries(no_camera ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+
+add_executable(no_trackbars scripts/no_trackbars.cpp)
+target_link_libraries(no_trackbars ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})

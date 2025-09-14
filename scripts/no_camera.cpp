@@ -1,20 +1,13 @@
 #include <ros/ros.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <deque>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+
 //bibliotecas necessárias. Talvez o opencv.hpp esteja redundante, pq teoricamente ele faz oq o imgproc e o highgui fazem. 
-
-//-----------------------
-//        TO-DO
-//----------------------
-
-// implementar subtração de gaussian blur pra melhorar a nitidez (?)
-// estudar como deixar o código mais leve
-// implementar buffer
-// limpar o código. Remover formato de kernel e esse tipo de coisa q realmente n tem muito uso
 
 class no_camera {
 public:
@@ -24,8 +17,11 @@ public:
 
     ros::NodeHandle nh_;
     //nodehandle é a api do ros
+    
     ros::Subscriber subscriber_camera_;
+    ros::Subscriber subscriber_trackbars_;
     ros::Publisher publisher_controle_;
+
     cv::Mat imagem_recebida_;
     //estabelece o subscriber, o publisher e cria a matriz pra imagem recebida
 
@@ -33,12 +29,22 @@ public:
     void erodir(const cv::Mat& input, cv::Mat& output);
     void dilatar(const cv::Mat& input, cv::Mat& output);
     void processa_imagens(const cv::Mat& input, cv::Mat& output);
+    void trackbars_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
     void imagem_callback(const sensor_msgs::ImageConstPtr& msg);
+    void mostrar_janelas();
     //estabelece os métodos utilizados no código
 
-    int h_min_, h_max_, s_min_, s_max_, v_min_, v_max_;
-    int tamanho_kernel_ero_, tamanho_kernel_dil_;
-    int forma_kernel_ero_, forma_kernel_dil_;
+    int h_min_ = 0; int h_max_ = 179;
+    int s_min_ = 0; int s_max_ = 255;
+    int v_min_ = 0; int v_max_ = 255;
+
+    int tamanho_kernel_ero_ = 1; int tamanho_kernel_dil_ = 1;
+    int forma_kernel_ero_ = 0;   int forma_kernel_dil_ = 0;
+
+    const size_t tamanho_max_buffer = 10;
+    std::deque<cv::Mat> buffer;
+    //buffer do pedro
+    std_msgs::Float32MultiArray array_info_trackbar;
     //cria variável pras trackbars
 };
 
@@ -50,30 +56,12 @@ no_camera::no_camera() {
     nh_ = ros::NodeHandle();
 
     subscriber_camera_ = nh_.subscribe("/camera/rgb/image_raw", 1, &no_camera::imagem_callback, this);
+    subscriber_trackbars_ = nh_.subscribe("/info_sliders", 1, &no_camera::trackbars_callback, this);
     // "this" faz com que quando o callback seja chamado, ele vai chamar nesse objeto específico, que no caso acaba por ser só esse aqui.
     publisher_controle_ = nh_.advertise<std_msgs::Float32MultiArray>("/info_objeto", 5);
     //puxa pela api do ros a img do gazebo e estabele o publisher com fila de 5
-
-    h_min_ = 0; h_max_ = 179;
-    s_min_ = 0; s_max_ = 255;
-    v_min_ = 0; v_max_ = 255;
-
-    tamanho_kernel_ero_ = 1, tamanho_kernel_dil_ = 1;
-    forma_kernel_ero_ = 0, forma_kernel_dil_ = 0;
-    //valor incial pra trackbar do opencv pq ele nao roda as janelas sem
-
-    cv::namedWindow("Ajuste Filtro");
-    cv::createTrackbar("h_min", "Ajuste Filtro", &h_min_, 179);
-    cv::createTrackbar("h_max", "Ajuste Filtro", &h_max_, 179);
-    cv::createTrackbar("s_min", "Ajuste Filtro", &s_min_, 255);
-    cv::createTrackbar("s_max", "Ajuste Filtro", &s_max_, 255);
-    cv::createTrackbar("v_min", "Ajuste Filtro", &v_min_, 255);
-    cv::createTrackbar("v_max", "Ajuste Filtro", &v_max_, 255);
-    cv::createTrackbar("ERO_forma", "Ajuste Filtro", &forma_kernel_ero_, 2);
-    cv::createTrackbar("ERO_kernel", "Ajuste Filtro", &tamanho_kernel_ero_, 2);
-    cv::createTrackbar("DIL_forma", "Ajuste Filtro", &forma_kernel_dil_, 2);
-    cv::createTrackbar("DIL_kernel", "Ajuste Filtro", &tamanho_kernel_dil_, 2);
     //esse "&" que aparece aqui e outras vezes é pra indicar o endereço da variavel, ao inves de criar uma copia dela pro metodo ler
+
 }
 
 //----------------------------
@@ -116,8 +104,29 @@ void no_camera::processa_imagens(const cv::Mat& input, cv::Mat& output) {
 }
 
 void no_camera::imagem_callback(const sensor_msgs::ImageConstPtr& msg) {
-    imagem_recebida_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8)->image;
+    buffer.push_back(cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8)->image);
     // a setinha é pq ele não retorna uma matriz do opencv, mas um objeto do tipo cvimage. Esse objeto tem uma entrada chamada img que é a matriz que queremos
+    if (buffer.size() > tamanho_max_buffer) {
+
+        buffer.pop_front();
+        //checa se ja estamos no tamanho max do buffer, caso afirmativo se livra do elemento mais antiga
+    }
+}
+
+void no_camera::trackbars_callback(const std_msgs::Float32MultiArray::ConstPtr& msg) {
+    
+    h_min_ = msg->data[0];
+    h_max_ = msg->data[1];
+    s_min_ = msg->data[2];
+    s_max_ = msg->data[3];
+    v_min_ = msg->data[4];
+    v_max_ = msg->data[5];
+    forma_kernel_ero_ = msg->data[6];
+    tamanho_kernel_ero_ = msg->data[7];
+    forma_kernel_dil_ = msg->data[8];
+    tamanho_kernel_dil_ = msg->data[9];
+    //eu tlg se eu copiasse um vetor e só referenciasse ele nos métodos talvez seria marginalmente mais rapido, mas mudar tudo no codigo pra isso é meio chato
+
 }
 
 //----------------------------
@@ -128,31 +137,22 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "no_camera");
     //eu nao entendi direito esse agrc, argv e char**. sei que um é o numero de argumentos, o outro o vetor e aparentemente
     //char** é pra indicar que é um array de strings, mas eu não sei exatamente que argumentos nem que array é esse, mas o ROS precisa pra rodar
-    no_camera node;
-    //esse inicia o nó de fato
-
+    no_camera objeto;
     ros::Rate loop_rate(30);
-    //esse cara não deveria existir conforme orientaçoes. mas eu quero ele aqui pro meu computador não pegar fogo. 
     cv::Mat frame, imagem_original, imagem_filtrada;
 
     while (ros::ok()) {
         ros::spinOnce();
         //pra ele rodar uma vez por cada ciclo
-
         std_msgs::Float32MultiArray msg_publicacao;
         msg_publicacao.data = {0.0, 0.0, 0.0, 0.0};
         //cria a msg com os 4 floats vazios pra publicar msm quando n ve nada
 
-        {
-            if (!node.imagem_recebida_.empty()) frame = node.imagem_recebida_.clone();
-            //buffer. Ele copia a ultima imagem recebida se nao for vazia. Aqui em baixo, ele sempre vai rodar pq frame nunca vai ser vazio, mas pode ser repetido
-        }
-
-        if (!frame.empty()) {
+        if (!objeto.buffer.empty()) {
             //"!" é diferente que nem no python, mas sem o =
-            imagem_original = frame;
+            imagem_original = objeto.buffer.back();
             //clona a imagem original pra mostrar
-            node.processa_imagens(imagem_original, imagem_filtrada);
+            objeto.processa_imagens(imagem_original, imagem_filtrada);
 
             cv::imshow("Imagem Original", imagem_original);
             cv::imshow("Imagem Filtrada", imagem_filtrada);
@@ -190,11 +190,11 @@ int main(int argc, char** argv) {
             msg_publicacao.data[3] = imagem_original.cols;
             //joga a altura e a largura pra msg
 
-            node.imagem_recebida_.release();
+            objeto.imagem_recebida_.release();
             //isso basicamente limpa os dados da matriz imagem recebida pra jogar as que a função receber no proximo ciclo. Ajuda a poupar memória, mas deve ser algo bem mixuruca
         }
 
-        node.publisher_controle_.publish(msg_publicacao);
+        objeto.publisher_controle_.publish(msg_publicacao);
         //sempre publica a msg
         loop_rate.sleep();
         //relaxa depois de cumprir o ciclo do loop

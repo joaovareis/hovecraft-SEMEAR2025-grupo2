@@ -37,6 +37,7 @@
     type="joint_state_publisher">
     </node>
 
+    <node pkg="hovercraft" type="no_trackbars" name="trackbars" output="screen" />
     <node pkg="hovercraft" type="no_camera" name="camera" output="screen" />
     <node pkg="hovercraft" type="no_controle.py" name="controle" output="screen" />
 

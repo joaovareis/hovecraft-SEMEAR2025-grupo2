@@ -7,12 +7,10 @@
 - Implementar subtração de gaussian blur pra melhorar a nitidez (?)
 - Estudar como deixar o código mais leve (adicionar multi-threading. Cuidado pra não pegar coisas de opencl pq o rspi não roda opencl sem umas gambiarras sinistras)
 - Remover features que a gente não usa, tipo formato de kernel (pós-testes)
-- Discutir com veteranos hz de nó da camera. 
 - ### TESTAR A PERFORMANCE VS PYTHON
 
 ### no_controle
 
-- Tirar a limitação de hz do controle (tambem discutir isso melhor)
 - Implementar odometria com a pixhawk (talvez isso acabe sendo outro nó)
 - Implmentar uma maneira de diminuir os motores de sustentação nas curvas, pra melhorar o atrito.
 - Simular melhor o comportamento do hover no gazebo (alguma maneira de implementar a falta de atrito)
