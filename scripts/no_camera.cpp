@@ -6,14 +6,16 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <algorithm>
+#include <vector>
 
 //bibliotecas necessárias. Talvez o opencv.hpp esteja redundante, pq teoricamente ele faz oq o imgproc e o highgui fazem. 
 
 class no_camera {
 public:
+//tudo publico msm fds
     no_camera();
-    //__init__ do c++
-    //esse public é pra qulquer função no codigo acessar, eu tentei usar private no inicio mas tava tendo uns bugs com mutex, que no final eu acabei abandonando tb
+    //declara o construtor
 
     ros::NodeHandle nh_;
     //nodehandle é a api do ros
@@ -21,17 +23,19 @@ public:
     ros::Subscriber subscriber_camera_;
     ros::Subscriber subscriber_trackbars_;
     ros::Publisher publisher_controle_;
+    //subscriber publisher
 
-    cv::Mat imagem_recebida_;
-    //estabelece o subscriber, o publisher e cria a matriz pra imagem recebida
-
+    cv::Mat imagem_recebida_, imagem_filtrada;
+    bool janelas_abertas;
+    std::vector<std::vector<cv::Point>> contornos;
+    //declara variaveis opencv, bool de checagem e vetor dos contornos pro minmax
+    
     void hsv(const cv::Mat& input, cv::Mat& output);
     void erodir(const cv::Mat& input, cv::Mat& output);
     void dilatar(const cv::Mat& input, cv::Mat& output);
     void processa_imagens(const cv::Mat& input, cv::Mat& output);
     void trackbars_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
     void imagem_callback(const sensor_msgs::ImageConstPtr& msg);
-    void mostrar_janelas();
     //estabelece os métodos utilizados no código
 
     int h_min_ = 0; int h_max_ = 179;
@@ -40,12 +44,14 @@ public:
 
     int tamanho_kernel_ero_ = 1; int tamanho_kernel_dil_ = 1;
     int forma_kernel_ero_ = 0;   int forma_kernel_dil_ = 0;
+    //variaveis dos filtros
 
     const size_t tamanho_max_buffer = 10;
     std::deque<cv::Mat> buffer;
     //buffer do pedro
-    std_msgs::Float32MultiArray array_info_trackbar;
-    //cria variável pras trackbars
+
+    std_msgs::Float32MultiArray msg_publicacao;
+    //msg a ser publicada
 };
 
 //----------------------------
@@ -53,6 +59,7 @@ public:
 //----------------------------
 
 no_camera::no_camera() {
+
     nh_ = ros::NodeHandle();
 
     subscriber_camera_ = nh_.subscribe("/camera/rgb/image_raw", 1, &no_camera::imagem_callback, this);
@@ -62,6 +69,13 @@ no_camera::no_camera() {
     //puxa pela api do ros a img do gazebo e estabele o publisher com fila de 5
     //esse "&" que aparece aqui e outras vezes é pra indicar o endereço da variavel, ao inves de criar uma copia dela pro metodo ler
 
+    cv::namedWindow("Imagem Original", cv::WINDOW_NORMAL);
+    cv::namedWindow("Imagem Filtrada", cv::WINDOW_NORMAL);
+    //por algum motivo o opencv não mostra as imagens no meu pc se n criar a janela no objeto antes
+
+    janelas_abertas = true;
+    //bool pra dizer se deve abrir a janela ou n
+
 }
 
 //----------------------------
@@ -69,7 +83,6 @@ no_camera::no_camera() {
 //----------------------------
 
 void no_camera::hsv(const cv::Mat& input, cv::Mat& output) {
-    //esse const é pra indicar pra ele só ler o que o endereço fornecer
     cv::Mat imagem_hsv;
     //cria variavel hsv
     cv::cvtColor(input, imagem_hsv, cv::COLOR_BGR2HSV);
@@ -96,11 +109,9 @@ void no_camera::dilatar(const cv::Mat& input, cv::Mat& output) {
 
 void no_camera::processa_imagens(const cv::Mat& input, cv::Mat& output) {
     //esse daqui é so os metodos ordenados pra n ter que adicionar 4 linhas de atribuiçao no main
-    cv::Mat filtrada, erodida, dilatada;
-    hsv(input, filtrada);
-    erodir(filtrada, erodida);
-    dilatar(erodida, dilatada);
-    output = dilatada;
+    hsv(input, output);
+    erodir(output, output);
+    dilatar(output, output);
 }
 
 void no_camera::imagem_callback(const sensor_msgs::ImageConstPtr& msg) {
@@ -121,10 +132,10 @@ void no_camera::trackbars_callback(const std_msgs::Float32MultiArray::ConstPtr& 
     s_max_ = msg->data[3];
     v_min_ = msg->data[4];
     v_max_ = msg->data[5];
-    forma_kernel_ero_ = msg->data[6];
-    tamanho_kernel_ero_ = msg->data[7];
-    forma_kernel_dil_ = msg->data[8];
-    tamanho_kernel_dil_ = msg->data[9];
+    tamanho_kernel_ero_ = msg->data[6];
+    forma_kernel_ero_ = msg->data[7];
+    tamanho_kernel_dil_ = msg->data[8];
+    forma_kernel_dil_ = msg->data[9];
     //eu tlg se eu copiasse um vetor e só referenciasse ele nos métodos talvez seria marginalmente mais rapido, mas mudar tudo no codigo pra isso é meio chato
 
 }
@@ -135,70 +146,91 @@ void no_camera::trackbars_callback(const std_msgs::Float32MultiArray::ConstPtr& 
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "no_camera");
-    //eu nao entendi direito esse agrc, argv e char**. sei que um é o numero de argumentos, o outro o vetor e aparentemente
-    //char** é pra indicar que é um array de strings, mas eu não sei exatamente que argumentos nem que array é esse, mas o ROS precisa pra rodar
-    no_camera objeto;
+
+    no_camera objeto_classe;
     ros::Rate loop_rate(30);
-    cv::Mat frame, imagem_original, imagem_filtrada;
 
     while (ros::ok()) {
+
         ros::spinOnce();
         //pra ele rodar uma vez por cada ciclo
-        std_msgs::Float32MultiArray msg_publicacao;
-        msg_publicacao.data = {0.0, 0.0, 0.0, 0.0};
+        objeto_classe.msg_publicacao.data = {0.0, 0.0, 0.0, 0.0};
         //cria a msg com os 4 floats vazios pra publicar msm quando n ve nada
 
-        if (!objeto.buffer.empty()) {
+        if (!objeto_classe.buffer.empty()) {
             //"!" é diferente que nem no python, mas sem o =
-            imagem_original = objeto.buffer.back();
-            //clona a imagem original pra mostrar
-            objeto.processa_imagens(imagem_original, imagem_filtrada);
+            const cv::Mat& imagem_original_ref = objeto_classe.buffer.back();
+            //referencia a imagem original
 
-            cv::imshow("Imagem Original", imagem_original);
-            cv::imshow("Imagem Filtrada", imagem_filtrada);
-            cv::waitKey(1);
+            objeto_classe.processa_imagens(imagem_original_ref, objeto_classe.imagem_filtrada);
 
-            std::vector<std::vector<cv::Point>> contornos;
-            cv::findContours(imagem_filtrada.clone(), contornos, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-            //cria o array com os contornos e preenche ele
+            if (objeto_classe.janelas_abertas) {
+                //mostra as imagens na janela se o bool for true
+                cv::imshow("Imagem Original", imagem_original_ref);
+                cv::imshow("Imagem Filtrada", objeto_classe.imagem_filtrada);
+            }
 
-            float altura_imagem = imagem_original.rows;
-            float largura_imagem = imagem_original.cols;
-            //aqui n da pra puxar isso direto com .shape, ent vc puxa linhas e colunas da matriz, e cada uma é um pixel
+            int key = cv::waitKey(1);
+            //registra a tecla apertada
 
-            if (!contornos.empty()) {
+            if (key == 'q') {
+                //se for q de quit, torna o bool false e fecha td. Teoricamente da pra apertar q denovo e abrir, mas precisa selecionar uma janela do opencv pra isso
+                //dai só criando uma janela "mestre" que sempre ta aberta pra vc selecionar
+                objeto_classe.janelas_abertas = !objeto_classe.janelas_abertas;
+                cv::destroyAllWindows();
+            }
+
+            objeto_classe.contornos.clear();
+            cv::findContours(objeto_classe.imagem_filtrada, objeto_classe.contornos, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            //zera o array com os contornos e preenche ele
+
+            if (!objeto_classe.contornos.empty()) {
                 size_t maior = 0;
                 //esse é o indice do maior contorno. eu começo dizendo que ele ta no 0
-                double area_max = cv::contourArea(contornos[0]);
-                for (size_t i=1; i<contornos.size(); i++) {
-                    double a = cv::contourArea(contornos[i]);
+                double area_max = cv::contourArea(objeto_classe.contornos[0]);
+                for (size_t i=1; i<objeto_classe.contornos.size(); i++) {
+                    double a = cv::contourArea(objeto_classe.contornos[i]);
                     if (a > area_max) { area_max = a; maior = i; }
                 }
-                //esse é basicamente o max do python. Ele vai comparando ate o final do array pra ver qual o maior contorno. Talvez tenha como otimizar isso
+                //esse é basicamente o max do python. Ele vai comparando ate o final do array pra ver qual o maior contorno.
+                //agora que tem a biblioteca do algorithm podia implementar ela, mas aparentemente as duas sao lineares ent n muda eficiencia
 
-                cv::Moments m = cv::moments(contornos[maior]);
-                //moments goated né, preciso nem falar
-                float cx = m.m10/m.m00;
-                float area_obj = m.m00;
+                const std::vector<cv::Point>& maior_contorno = objeto_classe.contornos[maior];
+                //tem que refenciar como vector se nao o algorithm não le cv point
 
-                msg_publicacao.data[0] = cx;
-                msg_publicacao.data[1] = area_obj;
+                auto iterador_x = std::minmax_element(maior_contorno.begin(), maior_contorno.end(),
+                                        [](const cv::Point& a, const cv::Point& b) {
+                                            return a.x < b.x;   
+                                        });
+                //auto pq o nome da variavel é quase uma linha inteira mano
+                //ele roda o vetor do maior contorno pra encontrar o point com maior e menor x. retorna o endereço do point
+
+                cv::Point extrema_esquerda = *(iterador_x.first);
+                cv::Point extrema_direita = *(iterador_x.second);
+                //aqui pega o endereço do point transforma de referencia em variável
+
+                float cx = (extrema_esquerda.x + extrema_direita.x)/2;
+                //calcula o centro do maior contorno pela média entre os valores de x
+
+                objeto_classe.msg_publicacao.data[0] = cx;
+                objeto_classe.msg_publicacao.data[1] = area_max;
                 //joga o cx e a area pra mensagem.
             }
 
-            msg_publicacao.data[2] = imagem_original.rows;
-            msg_publicacao.data[3] = imagem_original.cols;
+            objeto_classe.msg_publicacao.data[2] = imagem_original_ref.rows;
+            objeto_classe.msg_publicacao.data[3] = imagem_original_ref.cols;
             //joga a altura e a largura pra msg
 
-            objeto.imagem_recebida_.release();
+            objeto_classe.imagem_recebida_.release();
             //isso basicamente limpa os dados da matriz imagem recebida pra jogar as que a função receber no proximo ciclo. Ajuda a poupar memória, mas deve ser algo bem mixuruca
         }
 
-        objeto.publisher_controle_.publish(msg_publicacao);
+        objeto_classe.publisher_controle_.publish(objeto_classe.msg_publicacao);
         //sempre publica a msg
         loop_rate.sleep();
         //relaxa depois de cumprir o ciclo do loop
     }
 
+    cv::destroyAllWindows();
     return 0;
 }
