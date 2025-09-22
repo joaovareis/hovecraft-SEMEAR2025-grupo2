@@ -7,6 +7,7 @@
 - Implementar subtração de gaussian blur pra melhorar a nitidez (?)
 - Estudar como deixar o código mais leve (adicionar multi-threading. Cuidado pra não pegar coisas de opencl pq o rspi não roda opencl sem umas gambiarras sinistras)
 - Remover features que a gente não usa, tipo formato de kernel (pós-testes)
+- Remover completamente a altura. A gente pode utilizar a subtração entre as duas cordenadas extremas de x em relação a largura do frame da camera. 
 - ### TESTAR A PERFORMANCE VS PYTHON
 
 ### no_controle
