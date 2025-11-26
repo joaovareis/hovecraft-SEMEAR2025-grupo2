@@ -84,7 +84,7 @@ class FSM_robo_seguidor:
 
     def callback_info_objeto(self, msg):
         
-        if len(msg.data) < 5:
+        if len(msg.data) < 6:
             rospy.logwarn("Mensagem de câmera incompleta.")
             return
 
@@ -93,6 +93,7 @@ class FSM_robo_seguidor:
             self.area_total = msg.data[3] * msg.data[4]
             self.area_minima = self.area_total * 0.01
             self.area_maxima = self.area_total * 0.6
+            self.dist_obj = msg.data[5]
 
             if msg.data[2]>self.area_minima:
                 self.visto_por_ultimo = rospy.Time.now()
@@ -114,7 +115,7 @@ class FSM_robo_seguidor:
         twist = Twist()
 
         with self.dados_do_alvo_lock:
-            if self.dados_do_alvo[2] > self.area_maxima:
+            if self.dist_obj < 10: #Não sei em qual unidade esta, mudar este numero dps
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
 

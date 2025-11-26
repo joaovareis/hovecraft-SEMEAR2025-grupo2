@@ -9,6 +9,9 @@ from cv_bridge import CvBridge
 import threading
 from collections import deque
 
+ALTURA_OBJETO = 0 #colocar um valor
+DIST_FOCAL = 813.444712
+
 def pasmeira(x):
 #função que faz nada pq o openCV exige para as trackbars
     pass
@@ -141,20 +144,25 @@ if __name__ == '__main__':
             contornos, _ = cv2.findContours(img_dilatada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             msg = Float32MultiArray()
-            msg.data = [0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem)]
+            msg.data = [0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem), 0.0]
             #cria a msg
+
+            num_pixel_tela = cv2.countNonZero(img_dilatada)
             
             if contornos:
                 maior_contorno = max(contornos, key=cv2.contourArea)
+                _ , _ , largura_pixels_obj , altura_pixels_obj = cv2.boundingRect(maior_contorno) #Calcula a atura e a largura do maior retangulo que cabe dentro do objeto filtrado
                 M = cv2.moments(maior_contorno)
                 #esse moments é mt foda, basicamente um dicionário de várias informações úteis dos contornos
 
-                if M["m00"] > 0:
+                if num_pixel_tela > 20:
                     centro_x_objeto = int(M["m10"] / M["m00"])
                     centro_y_objeto = int(M["m01"] / M["m00"])
                     area_objeto = int(M["m00"])
                     #o centroide é calculado com uma média ponderada que basicamente vira 1/2 ou seja 0.5
                     #esse m00 é a área calculada mt eficientemente pela própria função moments
+
+                    dist_objeto = (ALTURA_OBJETO * DIST_FOCAL)/ altura_pixels_obj
                     
                     # atualiza a mensagem com os dados do objeto
                     msg.data[0] = float(centro_x_objeto)
@@ -167,7 +175,6 @@ if __name__ == '__main__':
 
         taxa.sleep()
         #isso é mt foda, faz o programa relaxar se ele já cumpriu a atividade dentro do ciclo dos 30hz, entao evita que as coisas fiquem dessincronizadas e economiza cpu
-
-
+        
     cv2.destroyAllWindows()
 #while true loop de cria
