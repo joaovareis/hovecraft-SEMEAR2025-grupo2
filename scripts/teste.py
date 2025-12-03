@@ -11,7 +11,14 @@ ALTURA_OBJETO = 14.2
 DIST_FOCAL = 813.444712
 iContador = 0
 
-cap = cv2.VideoCapture(1)
+mtx = np.array([[813.556992, 0.000000, 328.327845],
+[0.000000, 813.444712, 225.690383],
+[0.000000, 0.000000, 1.000000]]
+)
+
+dist = np.array([0.073695, 0.053370, -0.000830, -0.000563, 0.000000])
+
+cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -21,7 +28,12 @@ while True:
     if not ret:
         break
 
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    h, w = frame.shape[:2]
+    newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+    dst = cv2.undistort(frame, mtx, dist, None, newcameramtx)
+
+
+    hsv = cv2.cvtColor(dst, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, (90, 50, 50), (130, 255, 255))#Ajustar para a cor que for selecionada. Penso em roxo ou laranja
     kernel = np.ones((5, 5), np.uint8)
     img_erosao = cv2.erode(mask,kernel)
@@ -57,9 +69,7 @@ while True:
         break
 
 
-rospy.init_node('follow_object')
-
-
+rospy.init_node('teste')
 
 bridge = CvBridge()
 rospy.spin()
