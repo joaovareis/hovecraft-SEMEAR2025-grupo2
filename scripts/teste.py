@@ -18,7 +18,7 @@ mtx = np.array([[813.556992, 0.000000, 328.327845],
 
 dist = np.array([0.073695, 0.053370, -0.000830, -0.000563, 0.000000])
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(2)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -34,7 +34,7 @@ while True:
 
 
     hsv = cv2.cvtColor(dst, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, (90, 50, 50), (130, 255, 255))#Ajustar para a cor que for selecionada. Penso em roxo ou laranja
+    mask = cv2.inRange(hsv, (83, 141, 88), (146, 255, 255))#Ajustar para a cor que for selecionada. Penso em roxo ou laranja
     kernel = np.ones((5, 5), np.uint8)
     img_erosao = cv2.erode(mask,kernel)
     img_dilatada = cv2.dilate(img_erosao, kernel)

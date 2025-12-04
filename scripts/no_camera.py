@@ -4,68 +4,29 @@ import rospy
 from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import Image
 import cv2
-import numpy as np
 from cv_bridge import CvBridge
+import numpy as np
 import threading
 from collections import deque
 
-ALTURA_OBJETO = 0 #colocar um valor
+''' Constantes '''
+ALTURA_OBJETO = 50 #colocar um valor
+LARGURA_OBJETO = 50
 DIST_FOCAL = 813.444712
 
-def pasmeira(x):
-#função que faz nada pq o openCV exige para as trackbars
-    pass
+kernel = np.ones((5, 5), np.uint8)
 
+
+''' Codigo '''
 def hsv(input):
-    #função para aplicar a máscara HSV
 
-    hsv = cv2.cvtColor(input, cv2.COLOR_BGR2HSV)
-    #converte de BGR para HSV
+    hsv = cv2.cvtColor(input, cv2.COLOR_BGR2HSV) #converte de BGR para HS
 
-    h_min = cv2.getTrackbarPos('h_min', 'Ajuste filtro')
-    h_max = cv2.getTrackbarPos('h_max', 'Ajuste filtro')
-    s_min = cv2.getTrackbarPos('s_min', 'Ajuste filtro')
-    s_max = cv2.getTrackbarPos('s_max', 'Ajuste filtro')
-    v_min = cv2.getTrackbarPos('v_min', 'Ajuste filtro')
-    v_max = cv2.getTrackbarPos('v_max', 'Ajuste filtro')
-    #recebe valores máximos e mínmos para o filtro utilizar
-
-    lim_cor_inf = np.array([h_min, s_min, v_min])
-    lim_cor_sup = np.array([h_max, s_max, v_max])
-    #monta os limites do filtro
-
-    mask = cv2.inRange(hsv, lim_cor_inf, lim_cor_sup)
+    #mask = cv2.inRange(hsv, (84, 130, 88), (123, 221, 255))#Apagador de quadro
+    mask = cv2.inRange(hsv, (90, 50, 50), (130, 255, 255))#Simulação
     #mascara a imagem
 
     return(mask)
-
-def erodir(input):
-    #função que realiza erosão da máscara hsv
-
-    forma = cv2.getTrackbarPos('ERO_forma', 'Ajuste filtro')
-    tamanho = cv2.getTrackbarPos('ERO_kernel', 'Ajuste filtro')
-    #recebe o formato de kernel utilizado e tamanho
-
-    estrutura = cv2.getStructuringElement(forma, (2 * tamanho + 1, 2 * tamanho + 1),
-                                       (tamanho, tamanho))  #formatação do kernel e posição da ancora 
-    
-    img_erodida = cv2.erode(input, estrutura)
-
-    return(img_erodida)
-
-def dilatar(input):
-    #função que dilata a imagem erodida
-
-    forma = cv2.getTrackbarPos('DIL_forma', 'Ajuste filtro')
-    tamanho = cv2.getTrackbarPos('DIL_kernel', 'Ajuste filtro')
-    #formato de kernel utilizado e tamanho
-
-    estrutura = cv2.getStructuringElement(forma, (2 * tamanho + 1, 2 * tamanho + 1),
-                                       (tamanho, tamanho))  #formatação do kernel e posição da ancora 
-    
-    img_dilatada = cv2.dilate(input, estrutura)
-
-    return(img_dilatada)
 
 class robo_seguidor:
 
@@ -84,33 +45,13 @@ class robo_seguidor:
         #publica no topico de controle
 
         self.bridge = CvBridge()
-        #ponte ROS/openCV
 
         self.imagem_lock = threading.Lock() 
         # lock para evitar conflitos de thread. Acho que isso da certo pq meu computador n tava tankando single threading pra exibir as coisas do gazebo (?)
 
-        cv2.namedWindow('Ajuste filtro')
-        cv2.createTrackbar('h_min', 'Ajuste filtro', 0, 179, pasmeira)
-        cv2.createTrackbar('s_min', 'Ajuste filtro', 0, 255, pasmeira)
-        cv2.createTrackbar('v_min', 'Ajuste filtro', 0, 255, pasmeira)
-        cv2.createTrackbar('h_max', 'Ajuste filtro', 179, 179, pasmeira)
-        cv2.createTrackbar('s_max', 'Ajuste filtro', 255, 255, pasmeira)
-        cv2.createTrackbar('v_max', 'Ajuste filtro', 255, 255, pasmeira)
+    def imagem_callback(self, ros_camera):
 
-        cv2.createTrackbar('ERO_forma', 'Ajuste filtro', 0, 2, pasmeira)
-        cv2.createTrackbar('ERO_kernel', 'Ajuste filtro', 0, 10, pasmeira)
-
-        cv2.createTrackbar('DIL_forma', 'Ajuste filtro', 0, 2, pasmeira)
-        cv2.createTrackbar('DIL_kernel', 'Ajuste filtro', 0, 10, pasmeira)
-        #cria a janela com os 6 sliders pra ajustar o HSV, erosão e dilatação em tempo real
-
-    def imagem_callback(self, img_crua):
-        try:
-            with self.imagem_lock:
-                self.buffer.append(self.bridge.imgmsg_to_cv2(img_crua, desired_encoding="bgr8")) 
-        except Exception as e:
-            rospy.logerr(f"Erro ao converter imagem: {e}")
-    #pega a imagem crua, converte pra bgr8 e armazena. Try e except pra caso dessincronize o recebimento de imagens se ficar pesado dms, chatgpt auramaxxing. Sem o threading lock a janela do openccv fica preta
+        self.buffer.append(self.bridge.imgmsg_to_cv2(ros_camera, "bgr8")) 
     
 if __name__ == '__main__':
     robo = robo_seguidor()
@@ -126,13 +67,14 @@ if __name__ == '__main__':
         with robo.imagem_lock:
             if robo.buffer:
                 imagem_para_processar = robo.buffer.popleft()
-        #acessa a imagem pra processar com a "chave"
+        #Acessa a imagem mais antiga do buffer para processar
 
         if imagem_para_processar is not None:
             # aplica os filtros e exibe as janelas aqui. Sem esse is not none simplesmente nao abre a janela do opencv mt foda
+            
             img_hsv = hsv(imagem_para_processar)
-            img_erodida = erodir(img_hsv)
-            img_dilatada = dilatar(img_erodida)
+            img_erodida = cv2.erode(img_hsv, kernel)
+            img_dilatada = cv2.dilate(img_erodida, kernel)
 
             cv2.imshow("camera", imagem_para_processar)
             cv2.imshow("filtro", img_dilatada)
@@ -144,7 +86,7 @@ if __name__ == '__main__':
             contornos, _ = cv2.findContours(img_dilatada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             msg = Float32MultiArray()
-            msg.data = [0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem), 0.0]
+            msg.data = [0.0, 0.0, 0.0, float(largura_imagem), float(altura_imagem)]
             #cria a msg
 
             num_pixel_tela = cv2.countNonZero(img_dilatada)
@@ -162,19 +104,17 @@ if __name__ == '__main__':
                     #o centroide é calculado com uma média ponderada que basicamente vira 1/2 ou seja 0.5
                     #esse m00 é a área calculada mt eficientemente pela própria função moments
 
-                    dist_objeto = (ALTURA_OBJETO * DIST_FOCAL)/ altura_pixels_obj
-                    
-                    # atualiza a mensagem com os dados do objeto
-                    msg.data[0] = float(centro_x_objeto)
-                    msg.data[1] = float(centro_y_objeto)
-                    msg.data[2] = float(area_objeto)
-                    # largura e altura da imagem já estão na mensagem la de cima
+                    dist_objeto_alt = (ALTURA_OBJETO * DIST_FOCAL)/ altura_pixels_obj
+                    dist_objeto_lar = (LARGURA_OBJETO * DIST_FOCAL)/ largura_pixels_obj
 
-            # Sempre publica a mensagem, dentro ou fora do if
+                    dist_objeto = (dist_objeto_lar + dist_objeto_alt)/2
+                    
+                    msg.data[0] = float(centro_x_objeto)
+                    msg.data[1] = float(dist_objeto)        #float(centro_y_objeto)
+                    msg.data[2] = float(area_objeto)
+
             robo.controle_pub.publish(msg)
 
         taxa.sleep()
-        #isso é mt foda, faz o programa relaxar se ele já cumpriu a atividade dentro do ciclo dos 30hz, entao evita que as coisas fiquem dessincronizadas e economiza cpu
         
     cv2.destroyAllWindows()
-#while true loop de cria

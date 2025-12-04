@@ -6,7 +6,7 @@ from std_msgs.msg import Float32MultiArray
 from enum import Enum
 import threading
 
-#recebe da camera cx[0], cy[1], area_obj[2], larg_obj[3], altura_obj[4], altura_cam[5], larg_cam[6]
+#recebe da camera cx[0], dist-obj[1], area_obj[2], larg_obj[3], altura_obj[4], altura_cam[5], 
 #variaveis globais PID e controle a serem definidas pelo usuario
 
 ganho_proporcional = 0.01
@@ -19,7 +19,6 @@ timeout_perdido = 20.0
 class maquina_de_estados(Enum):
     procurando = 0
     seguindo = 1
-    perdido = 2
 
 class FSM_robo_seguidor:
 
@@ -50,8 +49,7 @@ class FSM_robo_seguidor:
 
         self.fsm = {
             maquina_de_estados.procurando: (self.procura,  self.transicao_procura),
-            maquina_de_estados.seguindo:   (self.segue,    self.transicao_seguindo),
-            maquina_de_estados.perdido:     (self.perdido,   self.transicao_perdido)
+            maquina_de_estados.seguindo:   (self.segue,    self.transicao_seguindo)
         }
         #estrutura da maquina de estados
 
@@ -84,7 +82,7 @@ class FSM_robo_seguidor:
 
     def callback_info_objeto(self, msg):
         
-        if len(msg.data) < 6:
+        if len(msg.data) < 5:
             rospy.logwarn("Mensagem de câmera incompleta.")
             return
 
@@ -93,7 +91,7 @@ class FSM_robo_seguidor:
             self.area_total = msg.data[3] * msg.data[4]
             self.area_minima = self.area_total * 0.01
             self.area_maxima = self.area_total * 0.6
-            self.dist_obj = msg.data[5]
+            self.dist_obj = msg.data[1]
 
             if msg.data[2]>self.area_minima:
                 self.visto_por_ultimo = rospy.Time.now()
@@ -115,7 +113,7 @@ class FSM_robo_seguidor:
         twist = Twist()
 
         with self.dados_do_alvo_lock:
-            if self.dist_obj < 10: #Não sei em qual unidade esta, mudar este numero dps
+            if self.dist_obj < 15:
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
 
@@ -148,12 +146,7 @@ class FSM_robo_seguidor:
             if self.dados_do_alvo is not None and self.dados_do_alvo[2] > self.area_minima:
                 rospy.loginfo("Objeto detectado! Transição para SEGUINDO.")
                 return maquina_de_estados.seguindo
-
-            # Se já faz muito tempo que não vê nada, vai para perdido
-            if (rospy.Time.now() - self.visto_por_ultimo).to_sec() > timeout_perdido:
-                rospy.loginfo("Timeout! Transição para PERDIDO.")
-                return maquina_de_estados.perdido
-
+            
         return None
 
     def transicao_seguindo(self):
@@ -163,17 +156,6 @@ class FSM_robo_seguidor:
                 if (rospy.Time.now() - self.visto_por_ultimo).to_sec() > self.tempo_minimo_sem_objeto:
                     rospy.loginfo("Objeto perdido! Transição para PROCURANDO.")
                     return maquina_de_estados.procurando
-                else:
-                    return None  #mantem seguindo
-            else:
-                return None
-
-    def transicao_perdido(self):
-        with self.dados_do_alvo_lock:      
-            if self.dados_do_alvo is not None:
-                if self.dados_do_alvo[2] > self.area_minima:
-                    rospy.loginfo("Objeto detectado! Transição para SEGUINDO.")
-                    return maquina_de_estados.seguindo
                 
         return None
     #checa se o alvo está la. se estiver ele começa a seguir. Essa é a unica saida do perdido pra não virar um ping pong entre perdido e procurando
