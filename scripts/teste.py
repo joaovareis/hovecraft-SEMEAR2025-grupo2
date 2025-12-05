@@ -49,7 +49,7 @@ while True:
         M = cv2.moments(maior_contorno)
         #esse moments é mt foda, basicamente um dicionário de várias informações úteis dos contornos
 
-        if num_pixel_tela > 20:
+        if num_pixel_tela > 4:
             iContador+=1
             centro_x_objeto = int(M["m10"] / M["m00"])
             centro_y_objeto = int(M["m01"] / M["m00"])

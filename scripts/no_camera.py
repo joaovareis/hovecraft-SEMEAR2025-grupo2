@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import numpy as np
 import threading
 from collections import deque
+import statistics
 
 ''' Constantes '''
 ALTURA_OBJETO = 50 #colocar um valor
@@ -37,6 +38,8 @@ class robo_seguidor:
 
         self.buffer = deque(maxlen = 10)# Tem que ver qual o tamnho ideal
         #cria o buffer que recebe ass imagens da função callback
+
+        self.dist_median = deque(maxlen = 5)
 
         self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.imagem_callback)
         #pega a imagem do topico do ros
@@ -97,7 +100,7 @@ if __name__ == '__main__':
                 M = cv2.moments(maior_contorno)
                 #esse moments é mt foda, basicamente um dicionário de várias informações úteis dos contornos
 
-                if num_pixel_tela > 20:
+                if num_pixel_tela > 4:
                     centro_x_objeto = int(M["m10"] / M["m00"])
                     centro_y_objeto = int(M["m01"] / M["m00"])
                     area_objeto = int(M["m00"])
@@ -107,10 +110,13 @@ if __name__ == '__main__':
                     dist_objeto_alt = (ALTURA_OBJETO * DIST_FOCAL)/ altura_pixels_obj
                     dist_objeto_lar = (LARGURA_OBJETO * DIST_FOCAL)/ largura_pixels_obj
 
-                    dist_objeto = (dist_objeto_lar + dist_objeto_alt)/2
+                    dist_objeto_sample = (dist_objeto_lar + dist_objeto_alt)/2
+                    robo.dist_median.append(dist_objeto_sample)
+
+                    mediana_dist = statistics.median(robo.dist_median)
                     
                     msg.data[0] = float(centro_x_objeto)
-                    msg.data[1] = float(dist_objeto)        #float(centro_y_objeto)
+                    msg.data[1] = float(mediana_dist)        #float(centro_y_objeto)
                     msg.data[2] = float(area_objeto)
 
             robo.controle_pub.publish(msg)

@@ -14,7 +14,6 @@ ganho_diferencial = 0.001
 ganho_integral = 0.0
 offset = 75
 
-timeout_perdido = 20.0
 
 class maquina_de_estados(Enum):
     procurando = 0
@@ -129,13 +128,6 @@ class FSM_robo_seguidor:
 
         self.comando.publish(twist)
 
-    def perdido(self):
-
-        twist = Twist()
-
-        twist.angular.z, twist.linear.x = 0, 0
-        self.comando.publish(twist)
-        #simplesmente zera a vel angular e linear
 
     #======================================
     #  transicao
