@@ -6,7 +6,6 @@ from sensor_msgs.msg import Image
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
-import threading
 from collections import deque
 import statistics
 
@@ -49,9 +48,6 @@ class robo_seguidor:
 
         self.bridge = CvBridge()
 
-        self.imagem_lock = threading.Lock() 
-        # lock para evitar conflitos de thread. Acho que isso da certo pq meu computador n tava tankando single threading pra exibir as coisas do gazebo (?)
-
     def imagem_callback(self, ros_camera):
 
         self.buffer.append(self.bridge.imgmsg_to_cv2(ros_camera, "bgr8")) 
@@ -67,9 +63,8 @@ if __name__ == '__main__':
         imagem_para_processar = None
         #Quando o buffer estava vazio o codigo quebrava, pois nada era passado para imagem_para_processar, por isso precisei atribuir um valor inicial á essa variavel
         
-        with robo.imagem_lock:
-            if robo.buffer:
-                imagem_para_processar = robo.buffer.popleft()
+        if robo.buffer:
+            imagem_para_processar = robo.buffer.popleft()
         #Acessa a imagem mais antiga do buffer para processar
 
         if imagem_para_processar is not None:
@@ -113,10 +108,10 @@ if __name__ == '__main__':
                     dist_objeto_sample = (dist_objeto_lar + dist_objeto_alt)/2
                     robo.dist_median.append(dist_objeto_sample)
 
-                    mediana_dist = statistics.median(robo.dist_median)
+                    mediana_dist = np.median(robo.dist_median)
                     
                     msg.data[0] = float(centro_x_objeto)
-                    msg.data[1] = float(mediana_dist)        #float(centro_y_objeto)
+                    msg.data[1] = float(mediana_dist)
                     msg.data[2] = float(area_objeto)
 
             robo.controle_pub.publish(msg)
