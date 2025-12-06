@@ -1,5 +1,5 @@
 import rospy 
-from std_msgs.msg import Int16
+from std_msgs.msg import Twist
 import pigpio
 import os 
 import time
@@ -119,9 +119,11 @@ if __name__ == '__main__':
         pwm_node = node()
         pwm_node.calibrar()
 
-        rospy.Subscriber('/servo_angulo', Int16, pwm_node.servo_motor.callback_angulo)
-        rospy.Subscriber('/esc_propulsao_velocidade', Int16, pwm_node.esc_propulsao.callback_definir_velocidade)
-        rospy.Subscriber('/esc_sustentacao_velocidade', Int16, pwm_node.esc_sustentacao.callback_definir_velocidade)
+        rospy.Subscriber('/servo_angulo', Twist, pwm_node.servo_motor.callback_angulo)
+        rospy.Subscriber('/esc_propulsao_velocidade', Twist, pwm_node.esc_propulsao.callback_definir_velocidade)
+        #rospy.Subscriber('/esc_sustentacao_velocidade', Int16, pwm_node.esc_sustentacao.callback_definir_velocidade)
+
+        pwm_node.esc_sustentacao.definir_velocidade(70)
 
         rospy.loginfo("Nó PWM inicializado. Aguardando mensagens...")
         rospy.spin()
