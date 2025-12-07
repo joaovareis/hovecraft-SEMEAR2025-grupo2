@@ -12,9 +12,28 @@ import os
 VEL_LIN_MAX = 0.2
 PORCENTAGEM_DE_SUSTENTACAO = 60 #Porcentagem
 
+KP = 15000.0  
+MAX_OUTPUT = 100.0
+MIN_OUTPUT = 0.0
+
 os.system("sudo pigpiod")
 time.sleep(1)
 pi = pigpio.pi()
+
+
+
+class PController:
+    def __init__(self, Kp, max_out, min_out):
+        self.Kp = Kp
+        self.max_out = max_out
+        self.min_out = min_out
+
+    def calcular_saida(self, erro_atual):
+
+        output = self.Kp * erro_atual
+        output_limitado = max(min(output, self.max_out), self.min_out)
+        
+        return output_limitado
 
 
 class ESC:
@@ -62,7 +81,7 @@ class dado_vel:
         self.linear = msg.linear.x
         self.angular = msg.angular.z
 
-def error_definition(self):
+def error_definition(erro_vel, target_vel, real_vel):
     erro_vel.linear = target_vel.linear - real_vel.linear
     erro_vel.angular = target_vel.angular - real_vel.angular 
 
@@ -75,6 +94,8 @@ if __name__ == '__main__':
     real_vel = dado_vel()
     target_vel = dado_vel()
     erro_vel = dado_vel()
+
+    propulsao_p_controller = PController(KP, MAX_OUTPUT, MIN_OUTPUT)
     
     rospy.init_node('Motor de propulsão')
 
@@ -91,9 +112,16 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         esc_propulsao.flight_forward()
         rospy.sleep(0.05)
+        error_definition(erro_vel, target_vel, real_vel)
+
+
+        erro_linear = error_definition(target_vel, real_vel)
+        p_output = propulsao_p_controller.calcular_saida(erro_linear)
+        esc_propulsao.set_thrust_from_p_controller(p_output)
 
 
 
+    esc_susutentacao.desligar_esc()
     esc_propulsao.desligar_esc()
     pi.stop()
 

@@ -18,7 +18,7 @@ mtx = np.array([[813.556992, 0.000000, 328.327845],
 
 dist = np.array([0.073695, 0.053370, -0.000830, -0.000563, 0.000000])
 
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(-1)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
@@ -64,7 +64,7 @@ while True:
                 iContador = 0
 
 
-    cv2.imshow('Video', img_dilatada)
+    #cv2.imshow('Video', img_dilatada)
     if cv2.waitKey(33) & 0xFF == ord('q'):
         break
 
