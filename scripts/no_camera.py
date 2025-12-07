@@ -12,7 +12,9 @@ import statistics
 ''' Constantes '''
 ALTURA_OBJETO = 50 #colocar um valor
 LARGURA_OBJETO = 50
-DIST_FOCAL = 813.444712
+DIST_FOCAL = 554.3827128226441 #Mudar
+
+#distancia focal camera real: 813.444712 
 
 kernel = np.ones((5, 5), np.uint8)
 
@@ -74,8 +76,9 @@ if __name__ == '__main__':
             img_erodida = cv2.erode(img_hsv, kernel)
             img_dilatada = cv2.dilate(img_erodida, kernel)
 
-            cv2.imshow("camera", imagem_para_processar)
-            cv2.imshow("filtro", img_dilatada)
+            cv2.imshow('Video', img_dilatada)
+
+
             
             #pega a altura e a largura da imagem original
             altura_imagem, largura_imagem, _ = imagem_para_processar.shape
@@ -91,11 +94,12 @@ if __name__ == '__main__':
             
             if contornos:
                 maior_contorno = max(contornos, key=cv2.contourArea)
-                _ , _ , largura_pixels_obj , altura_pixels_obj = cv2.boundingRect(maior_contorno) #Calcula a atura e a largura do maior retangulo que cabe dentro do objeto filtrado
+                rect = cv2.minAreaRect(maior_contorno)
+                (altura_pixels_obj,largura_pixels_obj) = rect[1]
                 M = cv2.moments(maior_contorno)
                 #esse moments é mt foda, basicamente um dicionário de várias informações úteis dos contornos
 
-                if num_pixel_tela > 4:
+                if num_pixel_tela > 0:
                     centro_x_objeto = int(M["m10"] / M["m00"])
                     centro_y_objeto = int(M["m01"] / M["m00"])
                     area_objeto = int(M["m00"])
@@ -105,14 +109,13 @@ if __name__ == '__main__':
                     dist_objeto_alt = (ALTURA_OBJETO * DIST_FOCAL)/ altura_pixels_obj
                     dist_objeto_lar = (LARGURA_OBJETO * DIST_FOCAL)/ largura_pixels_obj
 
-                    dist_objeto_sample = (dist_objeto_lar + dist_objeto_alt)/2
-                    robo.dist_median.append(dist_objeto_sample)
-
-                    mediana_dist = np.median(robo.dist_median)
+                    dist_objeto = (dist_objeto_lar + dist_objeto_alt)/2
+                    print(dist_objeto)
                     
                     msg.data[0] = float(centro_x_objeto)
-                    msg.data[1] = float(mediana_dist)
+                    msg.data[1] = float(dist_objeto)
                     msg.data[2] = float(area_objeto)
+
 
             robo.controle_pub.publish(msg)
 

@@ -46,7 +46,6 @@ class ESC:
         self.ligado = False
 
     def flight_forward(self):
-
         velocidade_porcentagem = (target_vel.linear * 100)/VEL_LIN_MAX
         self.definir_velocidade(velocidade_porcentagem)
     
@@ -81,7 +80,6 @@ if __name__ == '__main__':
 
     sub_pix_vel = rospy.Subscriber("/mavros/local_position/velocity", Twist, real_vel.callback)
     sub_cmd_vel = rospy.Subscriber("/cmd_vel", Twist, target_vel.callback)
-
 
     #Armam os dois motores
     esc_propulsao.armar()

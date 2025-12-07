@@ -33,8 +33,7 @@ class FSM_robo_seguidor:
         #isso impede que os dados sejam lidos quando não existem e enquanto são modificados, pra evitar dar bugs
 
         self.area_total = 0.0
-        self.area_minima = 0.0
-        self.area_maxima = 0.0
+        self.area_objeto = 0.0 
         #cria variável que identifica as áreas totais do vídeo e a area mínima e max que o hover utiliza pra alterar estados
 
         self.erro_anterior = 0.0
@@ -44,7 +43,7 @@ class FSM_robo_seguidor:
 
         self.estado = maquina_de_estados.procurando
         self.visto_por_ultimo = rospy.Time.now()
-        self.tempo_minimo_sem_objeto = 1.0  # segundos
+        self.tempo_minimo_sem_objeto = 3.0  # segundos
 
         self.fsm = {
             maquina_de_estados.procurando: (self.procura,  self.transicao_procura),
@@ -87,13 +86,9 @@ class FSM_robo_seguidor:
 
         with self.dados_do_alvo_lock:
             self.dados_do_alvo = msg.data
+            self.area_objeto = msg.data[2]
             self.area_total = msg.data[3] * msg.data[4]
-            self.area_minima = self.area_total * 0.01
-            self.area_maxima = self.area_total * 0.6
             self.dist_obj = msg.data[1]
-
-            if msg.data[2]>self.area_minima:
-                self.visto_por_ultimo = rospy.Time.now()
 
     #======================================
     #funçoes de estado
@@ -112,16 +107,12 @@ class FSM_robo_seguidor:
         twist = Twist()
 
         with self.dados_do_alvo_lock:
-            if self.dist_obj < 15:
-                twist.linear.x = 0.0
-                twist.angular.z = 0.0
-
-            elif self.dados_do_alvo[2] < self.area_minima:
+            if self.dist_obj < 60:
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
 
             else:
-                twist.linear.x = 0.6
+                twist.linear.x = 0.1
                 erro_x = self.dados_do_alvo[0] - (int(self.dados_do_alvo[4] / 2) + offset)
                 twist.angular.z = max(min(self.PID(erro_x), 1.0), -1.0)
         #com a "chave" checa se o alvo está nos parametros. o primeiro if é pro tempinho que ele tem antes de voltar a girar, pra impedir que ande em circulos pq do PID
@@ -134,20 +125,20 @@ class FSM_robo_seguidor:
     #======================================
 
     def transicao_procura(self):
-        with self.dados_do_alvo_lock:
-            if self.dados_do_alvo is not None and self.dados_do_alvo[2] > self.area_minima:
+        if self.area_objeto > 0:
+            with self.dados_do_alvo_lock:
                 rospy.loginfo("Objeto detectado! Transição para SEGUINDO.")
+                self.visto_por_ultimo = rospy.Time.now()
                 return maquina_de_estados.seguindo
             
         return None
 
     def transicao_seguindo(self):
         with self.dados_do_alvo_lock:
-            if self.dados_do_alvo[2] < self.area_minima:
-                # Só muda se o alvo sumiu por mais de tempo minimo. impede que ele entre em procurando se tiver instabilidade na analise de imagem
-                if (rospy.Time.now() - self.visto_por_ultimo).to_sec() > self.tempo_minimo_sem_objeto:
-                    rospy.loginfo("Objeto perdido! Transição para PROCURANDO.")
-                    return maquina_de_estados.procurando
+            # Só muda se o alvo sumiu por mais de tempo minimo. impede que ele entre em procurando se tiver instabilidade na analise de imagem
+            if (rospy.Time.now() - self.visto_por_ultimo).to_sec() > self.tempo_minimo_sem_objeto:
+                rospy.loginfo("Objeto perdido! Transição para PROCURANDO.")
+                return maquina_de_estados.procurando
                 
         return None
     #checa se o alvo está la. se estiver ele começa a seguir. Essa é a unica saida do perdido pra não virar um ping pong entre perdido e procurando
