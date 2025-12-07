@@ -63,13 +63,12 @@ class ESC:
     def desligar_esc(self):
         pi.hardware_PWM(self.pino_da_rasp, self.frequencia, 0)
         self.ligado = False
-
-    def flight_forward(self):
-        velocidade_porcentagem = (target_vel.linear * 100)/VEL_LIN_MAX
-        self.definir_velocidade(velocidade_porcentagem)
     
     def flight_up(self):
         self.definir_velocidade(PORCENTAGEM_DE_SUSTENTACAO)
+
+    def set_thrust_from_p_controller(self, p_output):
+        self.definir_velocidade(p_output)
 
 
 class dado_vel:
@@ -84,6 +83,8 @@ class dado_vel:
 def error_definition(erro_vel, target_vel, real_vel):
     erro_vel.linear = target_vel.linear - real_vel.linear
     erro_vel.angular = target_vel.angular - real_vel.angular 
+
+
 
 
 if __name__ == '__main__':
@@ -107,18 +108,14 @@ if __name__ == '__main__':
     esc_susutentacao.armar()
 
     #Enche o saco
-    esc_propulsao.flight_up()
+    esc_susutentacao.flight_up()
 
     while not rospy.is_shutdown():
-        esc_propulsao.flight_forward()
-        rospy.sleep(0.05)
+        
         error_definition(erro_vel, target_vel, real_vel)
-
-
-        erro_linear = error_definition(target_vel, real_vel)
-        p_output = propulsao_p_controller.calcular_saida(erro_linear)
-        esc_propulsao.set_thrust_from_p_controller(p_output)
-
+        p_output_linear = propulsao_p_controller.calcular_saida(erro_vel.linear)
+        esc_propulsao.set_thrust_from_p_controller(p_output_linear)
+        rospy.sleep(0.05)
 
 
     esc_susutentacao.desligar_esc()
